@@ -2,6 +2,8 @@
 #define WIDGET_H
 
 #include <QWidget>
+#include "uinputvkeyboard.h"
+#include "x11vkeyboard.h"
 #include "keyboard.h"
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -20,9 +22,9 @@ protected:
     bool event(QEvent *event);
     void paintEvent(QPaintEvent *);
 private:
-    int fd;
-    void emit_key(int fd, int type, int code, int val);
+
     keyboard m_keyboard;
+    uinputvkeyboard m_vkeyboard;
     const int width = 600;
     const int height = 300;
 

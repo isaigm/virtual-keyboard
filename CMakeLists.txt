@@ -6,11 +6,12 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -lXtst -lX11 -lm -lQt5X11Extras")
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets   X11Extras )
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets   X11Extras )
 
 set(PROJECT_SOURCES
         main.cpp
@@ -41,6 +42,9 @@ else()
 
             keyboard.h keyboard.cpp
             ckey.h ckey.cpp
+            virtualkeyboard.h virtualkeyboard.cpp
+            uinputvkeyboard.h uinputvkeyboard.cpp
+            x11vkeyboard.h x11vkeyboard.cpp
 
         )
     endif()
