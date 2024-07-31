@@ -18,7 +18,6 @@ uinputvkeyboard::uinputvkeyboard()
     m_fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
     if (m_fd < 0)
     {
-        printf("%s\n", strerror(errno));
         throw std::runtime_error(strerror(errno));
     }
     ioctl(m_fd, UI_SET_EVBIT, EV_KEY);
@@ -68,7 +67,7 @@ uinputvkeyboard::uinputvkeyboard()
     m_tableCodes['j'] = KEY_J;
     m_tableCodes['k'] = KEY_K;
     m_tableCodes['l'] = KEY_L;
-    m_tableCodes[QChar(u'ñ')] = KEY_SEMICOLON;
+    m_tableCodes[u'ñ'] = KEY_SEMICOLON;
     m_tableCodes['z'] = KEY_Z;
     m_tableCodes['x'] = KEY_X;
     m_tableCodes['c'] = KEY_C;
@@ -87,6 +86,7 @@ uinputvkeyboard::uinputvkeyboard()
 }
 int uinputvkeyboard::qcharToCode(QChar ch)
 {
+    assert(m_tableCodes.contains(ch) == true);
     if (m_tableCodes.contains(ch))
     {
         return m_tableCodes[ch];

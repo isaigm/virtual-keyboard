@@ -27,7 +27,6 @@ bool Widget::event(QEvent *event)
             return true;
         }
     }
-
     return QWidget::event(event);
 }
 

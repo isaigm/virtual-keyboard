@@ -1,6 +1,5 @@
 #ifndef WIDGET_H
 #define WIDGET_H
-
 #include <QWidget>
 #include "uinputvkeyboard.h"
 #include "x11vkeyboard.h"
@@ -24,10 +23,9 @@ protected:
 private:
 
     keyboard m_keyboard;
-    uinputvkeyboard m_vkeyboard;
+    x11vkeyboard m_vkeyboard;
     const int width = 600;
     const int height = 300;
-
     Ui::Widget *ui;
 };
 #endif // WIDGET_H
