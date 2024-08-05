@@ -20,6 +20,7 @@ QChar ckey::getName()
 }
 void ckey::render(QPainter &painter)
 {
+    painter.setRenderHint(QPainter::Antialiasing);
     painter.setPen(Qt::green);
     painter.setFont(QFont("Arial", 32));
     painter.drawRoundedRect(m_bounds, 10.0f, 10.0f);

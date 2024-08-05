@@ -9,8 +9,12 @@ keyboard::keyboard() : m_keys(NAMES.size()) {
     int keysPerCol = NAMES.size() / totalRows;
     float xmargin = 1.0f;
     float ymargin = 32.0f;
-    float mx = 10.0f;
-    float my = 10.0f;
+    float mx = 0.0f;
+    float my = 0.0f;
+    float topleftx = mx;
+    float toplefty = my;
+    float bottomrightx = topleftx + (keysPerCol - 1) * (xmargin + kWidth);
+    float bottomrighty = toplefty + (totalRows - 1) * (ymargin + kHeight) + kHeight;
     for (int i = 0; i < totalRows; i++)
     {
         for (int j = 0; j < keysPerCol; j++)
@@ -23,6 +27,8 @@ keyboard::keyboard() : m_keys(NAMES.size()) {
             m_keys[j + i * keysPerCol].setBounds(bounds);
         }
     }
+    m_bounds.setTopLeft({topleftx, toplefty});
+    m_bounds.setBottomRight({bottomrightx, bottomrighty});
 }
 void keyboard::render(QPainter &painter)
 {
@@ -38,4 +44,8 @@ std::optional<QChar> keyboard::getPressedKey(QPointF point)
         if (key.contains(point)) return std::make_optional(key.getName());
     }
     return std::nullopt;
+}
+QRectF keyboard::getBounds()
+{
+    return m_bounds;
 }

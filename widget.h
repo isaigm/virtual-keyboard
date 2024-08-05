@@ -21,11 +21,14 @@ protected:
     bool event(QEvent *event);
     void paintEvent(QPaintEvent *);
 private:
-
     keyboard m_keyboard;
     x11vkeyboard m_vkeyboard;
-    const int width = 600;
-    const int height = 300;
+    const int width = 520;
+    const int height = 256;
+
     Ui::Widget *ui;
+private slots:
+    void exitSlot();
+
 };
 #endif // WIDGET_H
