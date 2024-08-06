@@ -19,22 +19,18 @@ Widget::Widget(QWidget *parent)
     ui->closeBtn->setGeometry(bounds.width() / 2 - geom.width() / 2, bounds.height() + verticalSpace / 2 - geom.height() / 2, geom.width(), geom.height());
     QObject::connect(ui->closeBtn, SIGNAL(clicked()), this, SLOT(exitSlot()));
 }
-bool Widget::event(QEvent *event)
+void Widget::mousePressEvent(QMouseEvent *event)
 {
-    if (event->type() == QEvent::MouseButtonPress) {
-        QMouseEvent *mouseEv = static_cast<QMouseEvent *>(event);
-        if (mouseEv->button() == Qt::MouseButton::LeftButton) {
-            QPoint pos = mouseEv->pos();
-            auto key = m_keyboard.getPressedKey(pos);
-            if (key != std::nullopt)
-            {
-                m_vkeyboard.sendKey(key.value());
-            }
-            return true;
+    if (event->button() == Qt::MouseButton::LeftButton) {
+        QPoint pos = event->pos();
+        auto key = m_keyboard.getPressedKey(pos);
+        if (key != std::nullopt)
+        {
+            m_vkeyboard.sendKey(key.value());
         }
     }
-    return QWidget::event(event);
 }
+
 
 void Widget::paintEvent(QPaintEvent *)
 {

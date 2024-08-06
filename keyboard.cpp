@@ -13,7 +13,7 @@ keyboard::keyboard() : m_keys(NAMES.size()) {
     float my = 0.0f;
     float topleftx = mx;
     float toplefty = my;
-    float bottomrightx = topleftx + (keysPerCol - 1) * (xmargin + kWidth);
+    float bottomrightx = topleftx + (keysPerCol - 1) * (xmargin + kWidth) + kWidth;
     float bottomrighty = toplefty + (totalRows - 1) * (ymargin + kHeight) + kHeight;
     for (int i = 0; i < totalRows; i++)
     {

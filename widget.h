@@ -18,7 +18,7 @@ public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
 protected:
-    bool event(QEvent *event);
+    void mousePressEvent(QMouseEvent *event);
     void paintEvent(QPaintEvent *);
 private:
     keyboard m_keyboard;

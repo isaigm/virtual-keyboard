@@ -39,8 +39,11 @@ void x11vkeyboard::sendKey(QChar key)
     int code = qcharToCode(key);
     XTestFakeKeyEvent(QX11Info::display(), code, true, 0);
     XSync(QX11Info::display(), False);
+    usleep(10000);
     XTestFakeKeyEvent(QX11Info::display(), code, false, 0);
     XSync(QX11Info::display(), False);
+    usleep(10000);
+
 }
 int x11vkeyboard::qcharToCode(QChar ch)
 {
