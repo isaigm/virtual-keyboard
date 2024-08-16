@@ -7,7 +7,7 @@ keyboard::keyboard() : m_keys(NAMES.size()) {
         key.setName(NAMES.at(i));
     }
     int keysPerCol = NAMES.size() / totalRows;
-    float xmargin = 1.0f;
+    float xmargin = 8.0f;
     float ymargin = 32.0f;
     float mx = 0.0f;
     float my = 0.0f;
