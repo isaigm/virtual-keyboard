@@ -30,6 +30,22 @@ keyboard::keyboard() : m_keys(NAMES.size()) {
     m_bounds.setTopLeft({topleftx, toplefty});
     m_bounds.setBottomRight({bottomrightx, bottomrighty});
 }
+void keyboard::enableKey(int index)
+{
+    if (index < m_keys.size() && index >= 0)
+    {
+        m_keys[index].setClicked(true);
+    }
+}
+
+void keyboard::disableKey(int index)
+{
+    if (index < m_keys.size() && index >= 0)
+    {
+        m_keys[index].setClicked(false);
+    }
+}
+
 void keyboard::render(QPainter &painter)
 {
     for(auto &key: m_keys)
@@ -37,11 +53,13 @@ void keyboard::render(QPainter &painter)
         key.render(painter);
     }
 }
-std::optional<QChar> keyboard::getPressedKey(QPointF point)
+std::optional<keyboard::key_t> keyboard::getPressedKey(QPointF point)
 {
-    for (auto &key: m_keys)
+    for (int i = 0; i < m_keys.size(); i++)
     {
-        if (key.contains(point)) return std::make_optional(key.getName());
+        auto &key = m_keys[i];
+        if (key.contains(point)) return std::make_optional(keyboard::key_t{i, key.getName()});
+
     }
     return std::nullopt;
 }

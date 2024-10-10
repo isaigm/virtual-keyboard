@@ -7,8 +7,16 @@
 class keyboard
 {
 public:
+    struct key_t
+    {
+        int index;
+        QChar name;
+    };
+
     keyboard();
-    std::optional<QChar> getPressedKey(QPointF point);
+    void enableKey(int index);
+    void disableKey(int index);
+    std::optional<key_t> getPressedKey(QPointF point);
     QRectF getBounds();
     void render(QPainter &painter);
 private:

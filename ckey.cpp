@@ -14,6 +14,10 @@ void ckey::setBounds(QRectF bounds)
 {
     m_bounds = bounds;
 }
+void ckey::setClicked(bool clicked)
+{
+    m_clicked = clicked;
+}
 QChar ckey::getName()
 {
     return m_name;
@@ -21,8 +25,16 @@ QChar ckey::getName()
 void ckey::render(QPainter &painter)
 {
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(Qt::green);
-    painter.setFont(QFont("Arial", 32));
+    if (m_clicked)
+    {
+        painter.setPen(Qt::white);
+    }
+    else
+    {
+        painter.setPen(Qt::green);
+    }
     painter.drawRoundedRect(m_bounds, 10.0f, 10.0f);
+    painter.setFont(QFont("Arial", 32));
+    painter.setPen(Qt::green);
     painter.drawText(m_bounds, Qt::AlignCenter, m_name);
 }

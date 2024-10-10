@@ -12,8 +12,10 @@ public:
     void  setName(QChar name);
     void  setBounds(QRectF bounds);
     void  render(QPainter &painter);
+    void  setClicked(bool clicked);
 private:
     QChar m_name;
     QRectF m_bounds;
+    bool m_clicked {false};
 };
 #endif // CKEY_H

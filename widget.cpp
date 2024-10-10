@@ -3,7 +3,7 @@
 #include <QKeyEvent>
 #include <QDebug>
 #include <QPainter>
-
+#include <QTimer>
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
@@ -26,12 +26,31 @@ void Widget::mousePressEvent(QMouseEvent *event)
         auto key = m_keyboard.getPressedKey(pos);
         if (key != std::nullopt)
         {
-            m_vkeyboard.sendKey(key.value());
+            auto [keyIndex, name] = key.value();
+            m_vkeyboard.sendKey(name);
+            m_currKeyPressed = keyIndex;
+            m_keyboard.enableKey(keyIndex);
+            repaint();
         }
     }
 }
-
-
+void Widget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::MouseButton::LeftButton) {
+        if (m_currKeyPressed > 0 && !m_enabledTimer)
+        {
+            m_enabledTimer = true;
+            QTimer::singleShot(100, this, &Widget::disableCurrentKey);
+        }
+    }
+}
+void Widget::disableCurrentKey()
+{
+    m_keyboard.disableKey(m_currKeyPressed);
+    m_enabledTimer = false;
+    m_currKeyPressed = -1;
+    repaint();
+}
 void Widget::paintEvent(QPaintEvent *)
 {
     QPainter painter(this);

@@ -19,12 +19,16 @@ public:
     ~Widget();
 protected:
     void mousePressEvent(QMouseEvent *event);
+    void mouseReleaseEvent(QMouseEvent *event);
     void paintEvent(QPaintEvent *);
 private:
+    void disableCurrentKey();
     keyboard m_keyboard;
     x11vkeyboard m_vkeyboard;
-    const int width = 520;
-    const int height = 256;
+    bool m_enabledTimer {false};
+    int m_currKeyPressed {-1};
+    const int width {520};
+    const int height {256};
 
     Ui::Widget *ui;
 private slots:
