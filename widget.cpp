@@ -21,33 +21,40 @@ Widget::Widget(QWidget *parent)
 }
 void Widget::mousePressEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MouseButton::LeftButton) {
-        QPoint pos = event->pos();
-        auto key = m_keyboard.getPressedKey(pos);
-        if (key != std::nullopt)
-        {
-            auto [keyIndex, name] = key.value();
-            m_vkeyboard.sendKey(name);
-            m_currKeyPressed = keyIndex;
-            m_keyboard.enableKey(keyIndex);
-            repaint();
-        }
+    if (event->button() != Qt::MouseButton::LeftButton) return;
+    QPoint pos = event->pos();
+    auto key = m_keyboard.getPressedKey(pos);
+    if (key == std::nullopt) return;
+    if (!m_enabledTimer)
+    {
+        auto [keyIndex, name] = key.value();
+        m_vkeyboard.sendKey(name);
+        m_currKeyPressed = keyIndex;
+        m_keyboard.enableKey(keyIndex);
+        repaint();
+        return;
     }
+    m_stillActive = true;
 }
 void Widget::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (event->button() == Qt::MouseButton::LeftButton) {
-        if (m_currKeyPressed > 0 && !m_enabledTimer)
-        {
-            m_enabledTimer = true;
-            QTimer::singleShot(100, this, &Widget::disableCurrentKey);
-        }
+    if (event->button() != Qt::MouseButton::LeftButton) return;
+    if (m_currKeyPressed < 0) return;
+    m_stillActive = false;
+    if (!m_enabledTimer)
+    {
+        QTimer::singleShot(100, this, &Widget::disableCurrentKey);
+        m_enabledTimer = true;
     }
 }
 void Widget::disableCurrentKey()
 {
-    m_keyboard.disableKey(m_currKeyPressed);
     m_enabledTimer = false;
+    if (m_stillActive)
+    {
+        return;
+    }
+    m_keyboard.disableKey(m_currKeyPressed);
     m_currKeyPressed = -1;
     repaint();
 }

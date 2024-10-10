@@ -26,6 +26,7 @@ private:
     keyboard m_keyboard;
     x11vkeyboard m_vkeyboard;
     bool m_enabledTimer {false};
+    bool m_stillActive  {false};
     int m_currKeyPressed {-1};
     const int width {520};
     const int height {256};
