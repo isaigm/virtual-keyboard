@@ -5,6 +5,7 @@ class virtualkeyboard
 {
 public:
     virtualkeyboard();
+    virtual ~virtualkeyboard() = default;
     virtual int qcharToCode(QChar ch) = 0;
     virtual void sendKey(QChar key) = 0;
 };

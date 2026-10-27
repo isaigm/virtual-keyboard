@@ -86,27 +86,22 @@ uinputvkeyboard::uinputvkeyboard()
 }
 int uinputvkeyboard::qcharToCode(QChar ch)
 {
-    assert(m_tableCodes.contains(ch) == true);
-    if (m_tableCodes.contains(ch))
-    {
-        return m_tableCodes[ch];
-    }
-    return -1;
+    auto it = m_tableCodes.find(ch);
+    return it != m_tableCodes.end() ? it->second : -1;
 }
 
 void uinputvkeyboard::emitKey(int type, int code, int val)
 {
-    struct input_event ie;
+    struct input_event ie {};   // zeroed; the kernel fills in the timestamp
     ie.type = type;
     ie.code = code;
     ie.value = val;
-    ie.time.tv_sec = 0;
-    ie.time.tv_usec = 0;
     write(m_fd, &ie, sizeof(ie));
 }
 void uinputvkeyboard::sendKey(QChar key)
 {
     int code = qcharToCode(key);
+    if (code < 0) return;
     emitKey(EV_KEY, code, 1);
     emitKey(EV_SYN, SYN_REPORT, 0);
     emitKey(EV_KEY, code, 0);

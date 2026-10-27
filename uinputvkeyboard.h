@@ -8,6 +8,9 @@ class uinputvkeyboard : public virtualkeyboard
 public:
     uinputvkeyboard();
     ~uinputvkeyboard();
+    // Owns a file descriptor: a copy would close/destroy the device twice.
+    uinputvkeyboard(const uinputvkeyboard &) = delete;
+    uinputvkeyboard &operator=(const uinputvkeyboard &) = delete;
     virtual void sendKey(QChar key);
     virtual int qcharToCode(QChar ch);
 private:

@@ -1,4 +1,5 @@
 #include "x11vkeyboard.h"
+#include <QDebug>   // Qt headers must come before X11 ones (Bool/Status macros)
 #include <QtX11Extras/qx11info_x11.h>
 #include <X11/Xlib.h>
 #include <X11/keysym.h>
@@ -37,18 +38,27 @@ x11vkeyboard::x11vkeyboard()
 void x11vkeyboard::sendKey(QChar key)
 {
     int code = qcharToCode(key);
-    XTestFakeKeyEvent(QX11Info::display(), code, true, 0);
-    XSync(QX11Info::display(), False);
-    XTestFakeKeyEvent(QX11Info::display(), code, false, 0);
-    XSync(QX11Info::display(), False);
+    if (code < 0)
+    {
+        qWarning() << "x11vkeyboard: no keycode for" << key;
+        return;
+    }
+    // Under Wayland Qt does not use X11 and display() is nullptr;
+    // passing it to XTest would segfault.
+    Display *dpy = QX11Info::display();
+    if (dpy == nullptr)
+    {
+        qWarning("x11vkeyboard: not running on X11 (Wayland session?), key not sent");
+        return;
+    }
+    XTestFakeKeyEvent(dpy, code, True, 0);
+    XSync(dpy, False);
+    XTestFakeKeyEvent(dpy, code, False, 0);
+    XSync(dpy, False);
 }
 int x11vkeyboard::qcharToCode(QChar ch)
 {
-    assert(m_tableCodes.contains(ch) == true);
-    if (m_tableCodes.contains(ch))
-    {
-        return m_tableCodes[ch];
-    }
-    return -1;
+    auto it = m_tableCodes.find(ch);
+    return it != m_tableCodes.end() ? it->second : -1;
 }
 
