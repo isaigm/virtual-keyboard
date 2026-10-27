@@ -1,6 +1,7 @@
 #ifndef WIDGET_H
 #define WIDGET_H
 #include <QWidget>
+#include <QTimer>
 #include "uinputvkeyboard.h"
 #include "x11vkeyboard.h"
 #include "keyboard.h"
@@ -25,11 +26,8 @@ private:
     void disableCurrentKey();
     keyboard m_keyboard;
     x11vkeyboard m_vkeyboard;
-    bool m_enabledTimer {false};
-    bool m_stillActive  {false};
+    QTimer m_highlightTimer;      // turns the highlight off 100 ms after release
     int m_currKeyPressed {-1};
-    const int width {520};
-    const int height {256};
 
     Ui::Widget *ui;
 private slots:
