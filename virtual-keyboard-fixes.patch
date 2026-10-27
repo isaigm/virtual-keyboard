@@ -1,0 +1,526 @@
+From 306a62dcedaba35628438024de00b97aa07a0dea Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 04:03:00 +0000
+Subject: [PATCH 1/4] Fix linking: use target_link_libraries for
+ X11/Xtst/X11Extras
+
+The X11 libraries were passed as -l flags inside CMAKE_CXX_FLAGS. Those
+flags land before the object files on the link line, so with --as-needed
+(default on Debian/Ubuntu) the link fails with 'undefined reference to
+XSync'. Also drop the Qt 6 branch: it only compiled main/widget (missing
+keyboard.cpp, ckey.cpp, ...) and X11Extras does not exist in Qt 6.
+Ignore Qt Creator's per-user CMakeLists.txt.user.
+---
+ .gitignore     |  2 +-
+ CMakeLists.txt | 82 ++++++++++++++------------------------------------
+ 2 files changed, 24 insertions(+), 60 deletions(-)
+
+diff --git a/.gitignore b/.gitignore
+index dc84959..0ff047c 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,2 +1,2 @@
+ build/
+-
++CMakeLists.txt.user
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 1d55bb8..b913ea2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.5)
++cmake_minimum_required(VERSION 3.16)
+ 
+ project(virtual-keyboard VERSION 0.1 LANGUAGES CXX)
+ 
+@@ -8,71 +8,35 @@ set(CMAKE_AUTORCC ON)
+ 
+ set(CMAKE_CXX_STANDARD 20)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -lXtst -lX11 -lm -lQt5X11Extras")
+ 
+-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets   X11Extras )
+-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets   X11Extras )
+-
+-set(PROJECT_SOURCES
+-        main.cpp
+-        widget.cpp
+-        widget.h
+-        widget.ui
+-)
+-
+-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+-    qt_add_executable(virtual-keyboard
+-        MANUAL_FINALIZATION
+-        ${PROJECT_SOURCES}
+-    )
+-# Define target properties for Android with Qt 6 as:
+-#    set_property(TARGET virtual-keyboard APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
+-#                 ${CMAKE_CURRENT_SOURCE_DIR}/android)
+-# For more information, see https://doc.qt.io/qt-6/qt-add-executable.html#target-creation
+-else()
+-    if(ANDROID)
+-        add_library(virtual-keyboard SHARED
+-            ${PROJECT_SOURCES}
+-        )
+-# Define properties for Android with Qt 5 after find_package() calls as:
+-#    set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
+-    else()
+-        add_executable(virtual-keyboard
+-            ${PROJECT_SOURCES}
+-
+-            keyboard.h keyboard.cpp
+-            ckey.h ckey.cpp
+-            virtualkeyboard.h virtualkeyboard.cpp
+-            uinputvkeyboard.h uinputvkeyboard.cpp
+-            x11vkeyboard.h x11vkeyboard.cpp
+-
+-        )
+-    endif()
++# QX11Info (X11Extras) only exists in Qt 5, so this project is Qt 5 only.
++find_package(Qt5 REQUIRED COMPONENTS Widgets X11Extras)
++find_package(X11 REQUIRED)
++if(NOT X11_Xtst_FOUND)
++    message(FATAL_ERROR "libXtst not found (install libxtst-dev / libxtst)")
+ endif()
+ 
+-target_link_libraries(virtual-keyboard PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
++add_executable(virtual-keyboard
++    main.cpp
++    widget.cpp widget.h widget.ui
++    keyboard.cpp keyboard.h
++    ckey.cpp ckey.h
++    virtualkeyboard.cpp virtualkeyboard.h
++    uinputvkeyboard.cpp uinputvkeyboard.h
++    x11vkeyboard.cpp x11vkeyboard.h
++)
+ 
+-# Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
+-# If you are developing for iOS or macOS you should consider setting an
+-# explicit, fixed bundle identifier manually though.
+-if(${QT_VERSION} VERSION_LESS 6.1.0)
+-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.virtual-keyboard)
+-endif()
+-set_target_properties(virtual-keyboard PROPERTIES
+-    ${BUNDLE_ID_OPTION}
+-    MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
+-    MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+-    MACOSX_BUNDLE TRUE
+-    WIN32_EXECUTABLE TRUE
++# Libraries go here, not in CMAKE_CXX_FLAGS: flags end up before the object
++# files on the link line, and with --as-needed (default on Debian/Ubuntu)
++# the linker drops them.
++target_link_libraries(virtual-keyboard PRIVATE
++    Qt5::Widgets
++    Qt5::X11Extras
++    X11::X11
++    X11::Xtst
+ )
+ 
+ include(GNUInstallDirs)
+ install(TARGETS virtual-keyboard
+-    BUNDLE DESTINATION .
+-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+ )
+-
+-if(QT_VERSION_MAJOR EQUAL 6)
+-    qt_finalize_executable(virtual-keyboard)
+-endif()
+-- 
+2.43.0
+
+
+From 63d0a6c9cb1fddf8551e5f67cd45d0f1b1ac3e41 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 04:03:40 +0000
+Subject: [PATCH 2/4] Fix keys lost when typing fast
+
+A press that arrived while the 100 ms highlight timer was pending only set
+m_stillActive and returned without sending the key, so double letters
+('ll', 'rr') and any key tapped within 100 ms of the previous release were
+dropped ('llama' -> 'lm', 'perro' -> 'pr').
+
+Now every press sends its key; the highlight uses a member single-shot
+QTimer that is stopped on press and restarted on release. Also remove the
+unused 'width'/'height' members, which shadowed QWidget::width() and
+QWidget::height().
+---
+ widget.cpp | 38 +++++++++++++++-----------------------
+ widget.h   |  6 ++----
+ 2 files changed, 17 insertions(+), 27 deletions(-)
+
+diff --git a/widget.cpp b/widget.cpp
+index 790103e..dff71f7 100644
+--- a/widget.cpp
++++ b/widget.cpp
+@@ -1,9 +1,8 @@
+ #include "widget.h"
+ #include "./ui_widget.h"
+-#include <QKeyEvent>
++#include <QMouseEvent>
+ #include <QDebug>
+ #include <QPainter>
+-#include <QTimer>
+ Widget::Widget(QWidget *parent)
+     : QWidget(parent)
+     , ui(new Ui::Widget)
+@@ -18,6 +17,10 @@ Widget::Widget(QWidget *parent)
+     auto geom = ui->closeBtn->geometry();
+     ui->closeBtn->setGeometry(bounds.width() / 2 - geom.width() / 2, bounds.height() + verticalSpace / 2 - geom.height() / 2, geom.width(), geom.height());
+     QObject::connect(ui->closeBtn, SIGNAL(clicked()), this, SLOT(exitSlot()));
++
++    m_highlightTimer.setSingleShot(true);
++    m_highlightTimer.setInterval(100);
++    connect(&m_highlightTimer, &QTimer::timeout, this, &Widget::disableCurrentKey);
+ }
+ void Widget::mousePressEvent(QMouseEvent *event)
+ {
+@@ -25,35 +28,24 @@ void Widget::mousePressEvent(QMouseEvent *event)
+     QPoint pos = event->pos();
+     auto key = m_keyboard.getPressedKey(pos);
+     if (key == std::nullopt) return;
+-    if (!m_enabledTimer)
+-    {
+-        auto [keyIndex, name] = key.value();
+-        m_vkeyboard.sendKey(name);
+-        m_currKeyPressed = keyIndex;
+-        m_keyboard.enableKey(keyIndex);
+-        repaint();
+-        return;
+-    }
+-    m_stillActive = true;
++    // Every press is sent, even if the previous key is still highlighted:
++    // the highlight is only visual feedback and must not block typing.
++    m_highlightTimer.stop();
++    m_keyboard.disableKey(m_currKeyPressed);
++    auto [keyIndex, name] = key.value();
++    m_vkeyboard.sendKey(name);
++    m_currKeyPressed = keyIndex;
++    m_keyboard.enableKey(keyIndex);
++    repaint();
+ }
+ void Widget::mouseReleaseEvent(QMouseEvent *event)
+ {
+     if (event->button() != Qt::MouseButton::LeftButton) return;
+     if (m_currKeyPressed < 0) return;
+-    m_stillActive = false;
+-    if (!m_enabledTimer)
+-    {
+-        QTimer::singleShot(100, this, &Widget::disableCurrentKey);
+-        m_enabledTimer = true;
+-    }
++    m_highlightTimer.start();   // (re)starts the 100 ms countdown
+ }
+ void Widget::disableCurrentKey()
+ {
+-    m_enabledTimer = false;
+-    if (m_stillActive)
+-    {
+-        return;
+-    }
+     m_keyboard.disableKey(m_currKeyPressed);
+     m_currKeyPressed = -1;
+     repaint();
+diff --git a/widget.h b/widget.h
+index 8f0f92a..ab5fdad 100644
+--- a/widget.h
++++ b/widget.h
+@@ -1,6 +1,7 @@
+ #ifndef WIDGET_H
+ #define WIDGET_H
+ #include <QWidget>
++#include <QTimer>
+ #include "uinputvkeyboard.h"
+ #include "x11vkeyboard.h"
+ #include "keyboard.h"
+@@ -25,11 +26,8 @@ private:
+     void disableCurrentKey();
+     keyboard m_keyboard;
+     x11vkeyboard m_vkeyboard;
+-    bool m_enabledTimer {false};
+-    bool m_stillActive  {false};
++    QTimer m_highlightTimer;      // turns the highlight off 100 ms after release
+     int m_currKeyPressed {-1};
+-    const int width {520};
+-    const int height {256};
+ 
+     Ui::Widget *ui;
+ private slots:
+-- 
+2.43.0
+
+
+From cafea578dccffc5c42abb4449ebc23c1e2ce30a5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 04:05:15 +0000
+Subject: [PATCH 3/4] Lay out keys by QWERTY rows and stop clipping key
+ outlines
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+NAMES was the three QWERTY rows concatenated, but it was cut into a
+uniform 9-key grid, so 'p' ended up on the middle row and 'l', 'ñ' on the
+bottom row. It also relied on NAMES.size() being divisible by totalRows:
+any leftover keys got an empty rectangle and were invisible/unclickable.
+
+Keys are now defined per row (rows may differ in length, shorter rows are
+centered). An 8 px padding keeps the outlines of the first/last row and
+column from being cut by the window edge. Index checks in
+enableKey/disableKey no longer compare int with size_t.
+---
+ keyboard.cpp | 49 +++++++++++++++++++++++--------------------------
+ keyboard.h   | 12 ++++++++----
+ 2 files changed, 31 insertions(+), 30 deletions(-)
+
+diff --git a/keyboard.cpp b/keyboard.cpp
+index b603ba1..13aacca 100644
+--- a/keyboard.cpp
++++ b/keyboard.cpp
+@@ -1,38 +1,35 @@
+ #include "keyboard.h"
++#include <algorithm>
+ #include <QDebug>
+-keyboard::keyboard() : m_keys(NAMES.size()) {
+-    for(size_t i = 0; i < NAMES.size(); i++)
++keyboard::keyboard()
++{
++    // The widest row sets the keyboard width; shorter rows are centered.
++    int maxKeys = 0;
++    for (const QString &row : ROWS)
+     {
+-        auto &key = m_keys[i];
+-        key.setName(NAMES.at(i));
++        maxKeys = std::max(maxKeys, int(row.size()));
+     }
+-    int keysPerCol = NAMES.size() / totalRows;
+-    float xmargin = 8.0f;
+-    float ymargin = 32.0f;
+-    float mx = 0.0f;
+-    float my = 0.0f;
+-    float topleftx = mx;
+-    float toplefty = my;
+-    float bottomrightx = topleftx + (keysPerCol - 1) * (xmargin + kWidth) + kWidth;
+-    float bottomrighty = toplefty + (totalRows - 1) * (ymargin + kHeight) + kHeight;
+-    for (int i = 0; i < totalRows; i++)
++    float maxRowWidth = maxKeys * kWidth + (maxKeys - 1) * xmargin;
++
++    for (int i = 0; i < ROWS.size(); i++)
+     {
+-        for (int j = 0; j < keysPerCol; j++)
++        const QString &row = ROWS.at(i);
++        float rowWidth = row.size() * kWidth + (row.size() - 1) * xmargin;
++        float x0 = padding + (maxRowWidth - rowWidth) / 2.0f;
++        float y  = padding + i * (kHeight + ymargin);
++        for (int j = 0; j < row.size(); j++)
+         {
+-            QRectF bounds;
+-            QPointF pos(mx + j * (xmargin + kWidth), my + i * (ymargin + kHeight));
+-            bounds.setTopLeft(pos);
+-            bounds.setWidth(kWidth);
+-            bounds.setHeight(kHeight);
+-            m_keys[j + i * keysPerCol].setBounds(bounds);
++            ckey key(row.at(j));
++            key.setBounds(QRectF(x0 + j * (kWidth + xmargin), y, kWidth, kHeight));
++            m_keys.push_back(key);
+         }
+     }
+-    m_bounds.setTopLeft({topleftx, toplefty});
+-    m_bounds.setBottomRight({bottomrightx, bottomrighty});
++    float totalHeight = ROWS.size() * kHeight + (ROWS.size() - 1) * ymargin;
++    m_bounds = QRectF(0.0f, 0.0f, maxRowWidth + 2 * padding, totalHeight + 2 * padding);
+ }
+ void keyboard::enableKey(int index)
+ {
+-    if (index < m_keys.size() && index >= 0)
++    if (index >= 0 && index < int(m_keys.size()))
+     {
+         m_keys[index].setClicked(true);
+     }
+@@ -40,7 +37,7 @@ void keyboard::enableKey(int index)
+ 
+ void keyboard::disableKey(int index)
+ {
+-    if (index < m_keys.size() && index >= 0)
++    if (index >= 0 && index < int(m_keys.size()))
+     {
+         m_keys[index].setClicked(false);
+     }
+@@ -55,7 +52,7 @@ void keyboard::render(QPainter &painter)
+ }
+ std::optional<keyboard::key_t> keyboard::getPressedKey(QPointF point)
+ {
+-    for (int i = 0; i < m_keys.size(); i++)
++    for (int i = 0; i < int(m_keys.size()); i++)
+     {
+         auto &key = m_keys[i];
+         if (key.contains(point)) return std::make_optional(keyboard::key_t{i, key.getName()});
+diff --git a/keyboard.h b/keyboard.h
+index 5c2539f..da3c1b7 100644
+--- a/keyboard.h
++++ b/keyboard.h
+@@ -2,6 +2,7 @@
+ #define KEYBOARD_H
+ #include <vector>
+ #include <QString>
++#include <QStringList>
+ #include <optional>
+ #include "ckey.h"
+ class keyboard
+@@ -21,10 +22,13 @@ public:
+     void render(QPainter &painter);
+ private:
+     QRectF m_bounds;
+-    const QString NAMES = "qwertyuiopasdfghjklñzxcvbnm";
+-    const int kWidth = 64;
+-    const int kHeight = 64;
+-    const int totalRows = 3;
++    // One string per row, in QWERTY order. Rows may have different lengths.
++    const QStringList ROWS = {"qwertyuiop", "asdfghjklñ", "zxcvbnm"};
++    const float kWidth  = 64.0f;
++    const float kHeight = 64.0f;
++    const float xmargin = 8.0f;    // horizontal gap between keys
++    const float ymargin = 32.0f;   // vertical gap between rows
++    const float padding = 8.0f;    // empty border so key outlines are not clipped
+     std::vector<ckey> m_keys;
+ };
+ #endif // KEYBOARD_H
+-- 
+2.43.0
+
+
+From b448107c23ae02991e24e825194fc1cd4e10da18 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 27 Oct 2026 04:06:23 +0000
+Subject: [PATCH 4/4] Harden keyboard backends
+
+- x11vkeyboard: under a Wayland session Qt does not use X11 and
+  QX11Info::display() returns nullptr; XTestFakeKeyEvent(nullptr, ...)
+  segfaulted on the first key. Now it warns and returns.
+- qcharToCode: replace assert + lookup with a single find(); sendKey
+  ignores characters without a code instead of sending keycode -1.
+- virtualkeyboard: add a virtual destructor (polymorphic base class).
+- uinputvkeyboard: non-copyable (owns the fd; a copy would destroy the
+  device twice), zero-initialise input_event and let the kernel set the
+  timestamp.
+---
+ uinputvkeyboard.cpp | 13 ++++---------
+ uinputvkeyboard.h   |  3 +++
+ virtualkeyboard.h   |  1 +
+ x11vkeyboard.cpp    | 30 ++++++++++++++++++++----------
+ 4 files changed, 28 insertions(+), 19 deletions(-)
+
+diff --git a/uinputvkeyboard.cpp b/uinputvkeyboard.cpp
+index ea2f78d..fc73193 100644
+--- a/uinputvkeyboard.cpp
++++ b/uinputvkeyboard.cpp
+@@ -86,27 +86,22 @@ uinputvkeyboard::uinputvkeyboard()
+ }
+ int uinputvkeyboard::qcharToCode(QChar ch)
+ {
+-    assert(m_tableCodes.contains(ch) == true);
+-    if (m_tableCodes.contains(ch))
+-    {
+-        return m_tableCodes[ch];
+-    }
+-    return -1;
++    auto it = m_tableCodes.find(ch);
++    return it != m_tableCodes.end() ? it->second : -1;
+ }
+ 
+ void uinputvkeyboard::emitKey(int type, int code, int val)
+ {
+-    struct input_event ie;
++    struct input_event ie {};   // zeroed; the kernel fills in the timestamp
+     ie.type = type;
+     ie.code = code;
+     ie.value = val;
+-    ie.time.tv_sec = 0;
+-    ie.time.tv_usec = 0;
+     write(m_fd, &ie, sizeof(ie));
+ }
+ void uinputvkeyboard::sendKey(QChar key)
+ {
+     int code = qcharToCode(key);
++    if (code < 0) return;
+     emitKey(EV_KEY, code, 1);
+     emitKey(EV_SYN, SYN_REPORT, 0);
+     emitKey(EV_KEY, code, 0);
+diff --git a/uinputvkeyboard.h b/uinputvkeyboard.h
+index 9487451..b76e44f 100644
+--- a/uinputvkeyboard.h
++++ b/uinputvkeyboard.h
+@@ -8,6 +8,9 @@ class uinputvkeyboard : public virtualkeyboard
+ public:
+     uinputvkeyboard();
+     ~uinputvkeyboard();
++    // Owns a file descriptor: a copy would close/destroy the device twice.
++    uinputvkeyboard(const uinputvkeyboard &) = delete;
++    uinputvkeyboard &operator=(const uinputvkeyboard &) = delete;
+     virtual void sendKey(QChar key);
+     virtual int qcharToCode(QChar ch);
+ private:
+diff --git a/virtualkeyboard.h b/virtualkeyboard.h
+index e2ca741..5d01053 100644
+--- a/virtualkeyboard.h
++++ b/virtualkeyboard.h
+@@ -5,6 +5,7 @@ class virtualkeyboard
+ {
+ public:
+     virtualkeyboard();
++    virtual ~virtualkeyboard() = default;
+     virtual int qcharToCode(QChar ch) = 0;
+     virtual void sendKey(QChar key) = 0;
+ };
+diff --git a/x11vkeyboard.cpp b/x11vkeyboard.cpp
+index 3d79da0..7884e5d 100644
+--- a/x11vkeyboard.cpp
++++ b/x11vkeyboard.cpp
+@@ -1,4 +1,5 @@
+ #include "x11vkeyboard.h"
++#include <QDebug>   // Qt headers must come before X11 ones (Bool/Status macros)
+ #include <QtX11Extras/qx11info_x11.h>
+ #include <X11/Xlib.h>
+ #include <X11/keysym.h>
+@@ -37,18 +38,27 @@ x11vkeyboard::x11vkeyboard()
+ void x11vkeyboard::sendKey(QChar key)
+ {
+     int code = qcharToCode(key);
+-    XTestFakeKeyEvent(QX11Info::display(), code, true, 0);
+-    XSync(QX11Info::display(), False);
+-    XTestFakeKeyEvent(QX11Info::display(), code, false, 0);
+-    XSync(QX11Info::display(), False);
++    if (code < 0)
++    {
++        qWarning() << "x11vkeyboard: no keycode for" << key;
++        return;
++    }
++    // Under Wayland Qt does not use X11 and display() is nullptr;
++    // passing it to XTest would segfault.
++    Display *dpy = QX11Info::display();
++    if (dpy == nullptr)
++    {
++        qWarning("x11vkeyboard: not running on X11 (Wayland session?), key not sent");
++        return;
++    }
++    XTestFakeKeyEvent(dpy, code, True, 0);
++    XSync(dpy, False);
++    XTestFakeKeyEvent(dpy, code, False, 0);
++    XSync(dpy, False);
+ }
+ int x11vkeyboard::qcharToCode(QChar ch)
+ {
+-    assert(m_tableCodes.contains(ch) == true);
+-    if (m_tableCodes.contains(ch))
+-    {
+-        return m_tableCodes[ch];
+-    }
+-    return -1;
++    auto it = m_tableCodes.find(ch);
++    return it != m_tableCodes.end() ? it->second : -1;
+ }
+ 
+-- 
+2.43.0
+
