@@ -1,38 +1,35 @@
 #include "keyboard.h"
+#include <algorithm>
 #include <QDebug>
-keyboard::keyboard() : m_keys(NAMES.size()) {
-    for(size_t i = 0; i < NAMES.size(); i++)
+keyboard::keyboard()
+{
+    // The widest row sets the keyboard width; shorter rows are centered.
+    int maxKeys = 0;
+    for (const QString &row : ROWS)
     {
-        auto &key = m_keys[i];
-        key.setName(NAMES.at(i));
+        maxKeys = std::max(maxKeys, int(row.size()));
     }
-    int keysPerCol = NAMES.size() / totalRows;
-    float xmargin = 8.0f;
-    float ymargin = 32.0f;
-    float mx = 0.0f;
-    float my = 0.0f;
-    float topleftx = mx;
-    float toplefty = my;
-    float bottomrightx = topleftx + (keysPerCol - 1) * (xmargin + kWidth) + kWidth;
-    float bottomrighty = toplefty + (totalRows - 1) * (ymargin + kHeight) + kHeight;
-    for (int i = 0; i < totalRows; i++)
+    float maxRowWidth = maxKeys * kWidth + (maxKeys - 1) * xmargin;
+
+    for (int i = 0; i < ROWS.size(); i++)
     {
-        for (int j = 0; j < keysPerCol; j++)
+        const QString &row = ROWS.at(i);
+        float rowWidth = row.size() * kWidth + (row.size() - 1) * xmargin;
+        float x0 = padding + (maxRowWidth - rowWidth) / 2.0f;
+        float y  = padding + i * (kHeight + ymargin);
+        for (int j = 0; j < row.size(); j++)
         {
-            QRectF bounds;
-            QPointF pos(mx + j * (xmargin + kWidth), my + i * (ymargin + kHeight));
-            bounds.setTopLeft(pos);
-            bounds.setWidth(kWidth);
-            bounds.setHeight(kHeight);
-            m_keys[j + i * keysPerCol].setBounds(bounds);
+            ckey key(row.at(j));
+            key.setBounds(QRectF(x0 + j * (kWidth + xmargin), y, kWidth, kHeight));
+            m_keys.push_back(key);
         }
     }
-    m_bounds.setTopLeft({topleftx, toplefty});
-    m_bounds.setBottomRight({bottomrightx, bottomrighty});
+    float totalHeight = ROWS.size() * kHeight + (ROWS.size() - 1) * ymargin;
+    m_bounds = QRectF(0.0f, 0.0f, maxRowWidth + 2 * padding, totalHeight + 2 * padding);
 }
 void keyboard::enableKey(int index)
 {
-    if (index < m_keys.size() && index >= 0)
+    if (index >= 0 && index < int(m_keys.size()))
     {
         m_keys[index].setClicked(true);
     }
@@ -40,7 +37,7 @@ void keyboard::enableKey(int index)
 
 void keyboard::disableKey(int index)
 {
-    if (index < m_keys.size() && index >= 0)
+    if (index >= 0 && index < int(m_keys.size()))
     {
         m_keys[index].setClicked(false);
     }
@@ -55,7 +52,7 @@ void keyboard::render(QPainter &painter)
 }
 std::optional<keyboard::key_t> keyboard::getPressedKey(QPointF point)
 {
-    for (int i = 0; i < m_keys.size(); i++)
+    for (int i = 0; i < int(m_keys.size()); i++)
     {
         auto &key = m_keys[i];
         if (key.contains(point)) return std::make_optional(keyboard::key_t{i, key.getName()});
